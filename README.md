@@ -42,7 +42,9 @@ cocos new MyGame -p com.your_company.mygame -l cpp -d NEW_PROJECTS_DIR
 <br>
 cocos run -s NEW_PROJECTS_DIR/MyGame -p linux
 <br>
-
+4. В NEW_PROJECTS_DIR/MyGame удалите папку Classes, Resources и файл CMakeLists.txt
+<br>
+5. Склонируйте данный репозиторий в папку NEW_PROJECTS_DIR/MyGame
 <br>
 
 <br>
