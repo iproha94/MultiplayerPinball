@@ -1,0 +1,465 @@
+#include "GameScene.h"
+#include "PlayField.h"
+#include "MyBodyParser.h"
+#include "pausescene.h"
+#include "gameoverscene.h"
+
+USING_NS_CC;
+
+Scene* GameScene::createScene(int _GameMode) {
+    auto scene = Scene::createWithPhysics();
+
+    scene->getPhysicsWorld()->setGravity(Vec2(0, -350));
+    //scene->getPhysicsWorld()->setDebugDrawMask(PhysicsWorld::DEBUGDRAW_ALL);
+    scene->getPhysicsWorld()->setAutoStep(false);
+
+    auto layer = GameScene::create();
+    auto size = Director::getInstance()->getWinSize();
+    size.height += size.width / 5;
+    layer->setPosition(size.width / 2, size.height / 2 - size.width / 5);
+    scene->addChild(layer);
+
+    layer->setGameMode(_GameMode);
+
+    if (!_GameMode) {
+        //<ilya> Соединяемся
+    }
+
+    auto field = new PlayField;
+    field->createBoundary(layer);
+
+    field->createFlippers(layer, LHS, Player1);
+    field->createFlippers(layer, RHS, Player1);
+    field->createFlippers(layer, LHS, Player2);
+    field->createFlippers(layer, RHS, Player2);
+    field->createObsticles(layer);
+
+    field->createTripleBumper(layer, Player1);
+    field->createTripleBumper(layer, Player2);
+
+    field->createSlingshot(layer, RHS, Player1);
+    field->createSlingshot(layer, LHS, Player1);
+    field->createSlingshot(layer, RHS, Player2);
+    field->createSlingshot(layer, LHS, Player2);
+
+    field->createWall(layer, Player1);
+    field->createWall(layer, Player2);
+
+    field->createPlunger(layer, Player2);
+    field->createPlunger(layer, Player1);
+
+    layer->createBallForPlayer(layer->player1.getSide());
+    layer->player1.add_ball(layer->getChildByTag(layer->balls_total));
+
+    layer->createBallForPlayer(layer->player2.getSide());
+    layer->player2.add_ball(layer->getChildByTag(layer->balls_total));
+
+    return scene;
+}
+
+bool GameScene::init() {
+    if ( !Layer::init() )
+    {
+        return false;
+    }
+
+    delay = 0;
+
+    if (CC_TARGET_PLATFORM == CC_PLATFORM_IOS || CC_TARGET_PLATFORM == CC_PLATFORM_ANDROID) {
+        auto TouchListener = EventListenerTouchAllAtOnce::create();
+        TouchListener->onTouchesBegan = CC_CALLBACK_2(GameScene::onTouchesBegan, this);
+        TouchListener->onTouchesMoved = CC_CALLBACK_2(GameScene::onTouchesMoved, this);
+        TouchListener->onTouchesEnded = CC_CALLBACK_2(GameScene::onTouchesEnded, this);
+        _eventDispatcher->addEventListenerWithSceneGraphPriority(TouchListener, this);
+    }
+
+    if (CC_TARGET_PLATFORM == CC_PLATFORM_LINUX || CC_TARGET_PLATFORM == CC_PLATFORM_WIN32) {
+        auto KeyListener = EventListenerKeyboard::create();
+        Director::getInstance()->getOpenGLView()->setIMEKeyboardState(true);
+        KeyListener->onKeyPressed = CC_CALLBACK_2(GameScene::onKeyPressed, this);
+        KeyListener->onKeyReleased = CC_CALLBACK_2(GameScene::onKeyReleased, this);
+        _eventDispatcher->addEventListenerWithSceneGraphPriority(KeyListener, this);
+    }
+
+    auto ContactListener = EventListenerPhysicsContact::create();
+    ContactListener->onContactBegin = CC_CALLBACK_1(GameScene::onContactBegan, this);
+     _eventDispatcher->addEventListenerWithSceneGraphPriority(ContactListener, this);
+
+    visibleSize = Director::getInstance()->getVisibleSize();
+
+    player1.setSide(LHS);
+    player2.setSide(RHS);
+
+    cocos2d::log("Creating balls");
+
+    balls_total = 0;  
+
+    auto mainbackground = Sprite::create("BackGround.png");
+    mainbackground->setPosition(0, visibleSize.width / 10);
+    this->addChild(mainbackground, 0);
+
+    TTFConfig labelConfig;
+    labelConfig.fontFilePath = "DOCKERTHREE.ttf";
+    labelConfig.fontSize = 36;
+
+    Score1 = Label::createWithTTF(labelConfig, to_string(player1.get_score()));
+    //Score1 = Label::createWithSystemFont(to_string(player1.get_score()), "Arial", 35);
+    Score1->setPosition(visibleSize.width / 9 * LHS, visibleSize.height * 0.6);
+    Score1->setName("Score1");
+    this->addChild(Score1);
+
+    Score2 = Label::createWithTTF(labelConfig, to_string(player1.get_score()));
+    Score2->setPosition(visibleSize.width / 9 * RHS, visibleSize.height * 0.6);
+    Score1->setName("Score2");
+    this->addChild(Score2);
+
+    this->scheduleUpdate();
+
+    auto closeItem = MenuItemImage::create("CloseNormal.png", "CloseSelected.png", CC_CALLBACK_1(GameScene::Pause, this));
+
+    closeItem->setPosition(Vec2(visibleSize.width / 2 - closeItem->getContentSize().width/2 ,
+                                    visibleSize.height * 0.65 - closeItem->getContentSize().height/2));
+    auto menu = Menu::create(closeItem, NULL);
+    menu->setPosition(Vec2::ZERO);
+    this->addChild(menu, 1000);
+
+    return true;
+}
+
+void GameScene::Pause(Ref* pSender) {
+    auto pauseScene=PauseScene::createScene();
+
+    Director::getInstance()->pushScene(pauseScene);
+}
+
+void GameScene::createBall(Vec2 BallPosition, int Player) {
+    const int BallVelocityLimit = 950;
+    const int BallAngVelocityLimit = 25;
+    const int BallRadius = 12;
+    auto sprite = Sprite::create("ball.png");
+    sprite->setPosition(BallPosition);
+    sprite->setName("Ball");
+    this->addChild(sprite);
+
+    //debagging
+    //char position[11];
+    //sprintf(position, "%d", GameMode);
+    //cocos2d::log(position);
+
+    if (GameMode || Player == -1) {
+        auto circle = PhysicsBody::createCircle(BallRadius, PhysicsMaterial(0.005f, 0.2f, 0.5f));
+        circle->setVelocityLimit(BallVelocityLimit);
+        circle->setAngularVelocityLimit(BallAngVelocityLimit);
+        circle->setCategoryBitmask((int)PhysicsCategory::Ball);
+        circle->setContactTestBitmask((int)PhysicsCategory::All);
+        sprite->setPhysicsBody(circle);
+    }
+
+    ++balls_total;
+    sprite->setTag(balls_total);
+}
+
+void GameScene::createBallForPlayer(int side) {
+    createBall(Vec2(side * visibleSize.width * 0.48, 240), side);
+}
+
+void GameScene::flipper_triggered(std::string flipperName) {
+    auto side = get_side(flipperName);
+    auto flipper = this->getChildByName(flipperName)->getPhysicsBody();
+    flipper->resetForces();
+    flipper->applyTorque(-side * 145000000);
+    flipper->setAngularVelocity(-side * 25);
+}
+
+void GameScene::flipper_released(std::string flipperName) {
+    auto side = get_side(flipperName);
+    auto flipper = this->getChildByName(flipperName)->getPhysicsBody();
+    flipper->resetForces();
+    flipper->applyTorque(side * 20000000);
+}
+
+void GameScene::plunger_triggered(std::string plungerName) {
+    auto plunger = this->getChildByName(plungerName)->getPhysicsBody();
+    plunger->setVelocityLimit(250);
+    plunger->applyForce(Vec2(0, -600000));
+    cocos2d::log("force applied");
+}
+
+void GameScene::plunger_released(std::string plungerName) {
+    auto plunger = this->getChildByName(plungerName)->getPhysicsBody();
+    plunger->setVelocityLimit(15000);
+    plunger->setGravityEnable(false);
+    plunger->resetForces();
+}
+
+bool GameScene::onContactBegan(PhysicsContact &contact) {
+    auto nodeA = contact.getShapeA()->getBody()->getNode();
+    auto nodeB = contact.getShapeB()->getBody()->getNode();
+    if (nodeA->getName() != "Ball")
+        std::swap(nodeA, nodeB);
+    if (nodeB->getName() == "Bumper") {
+        nodeA->getPhysicsBody()->setVelocity(80 * Vec2(nodeA->getPosition().x - nodeB->getPosition().x, nodeA->getPosition().y - nodeB->getPosition().y));
+        if (nodeA->getPosition().x < 0) {
+            player1.add_score(200000);
+        } else {
+            player2.add_score(200000);
+        }
+    }
+    if (nodeB->getName() == "Kicker") {
+        nodeA->getPhysicsBody()->setVelocity(Vec2(20 * nodeB->getRotation(), 450));
+        if (nodeA->getPosition().x < 0) {
+            player1.add_score(150000);
+        } else {
+            player2.add_score(150000);
+        }
+    }
+    return true;
+}
+
+void GameScene::onKeyPressed(EventKeyboard::KeyCode keyCode, Event *event) {
+    if (GameMode /*== 1*/) {
+        switch(keyCode) {
+            case EventKeyboard::KeyCode::KEY_LEFT_ARROW:
+                flipper_triggered("Player2LeftFlipper");
+                break;
+            case EventKeyboard::KeyCode::KEY_RIGHT_ARROW:
+                flipper_triggered("Player2RightFlipper");
+                break;
+            case EventKeyboard::KeyCode::KEY_DOWN_ARROW:
+                plunger_triggered("LeftPlunger");
+                cocos2d::log("plunger triggered");
+                break;
+        }
+    }
+    switch(keyCode) {
+        case EventKeyboard::KeyCode::KEY_A:
+            flipper_triggered("Player1LeftFlipper");
+            break;
+        case EventKeyboard::KeyCode::KEY_D:
+            flipper_triggered("Player1RightFlipper");
+            break;
+        case EventKeyboard::KeyCode::KEY_S:
+            plunger_triggered("RightPlunger");
+            //cocos2d::log("plunger triggered");
+            break;
+    }
+}
+
+void GameScene::onKeyReleased(EventKeyboard::KeyCode keyCode, Event *event) {
+    if (GameMode/* == 1*/) {
+        switch(keyCode){
+            case EventKeyboard::KeyCode::KEY_LEFT_ARROW:
+                flipper_released("Player2LeftFlipper");
+                break;
+            case EventKeyboard::KeyCode::KEY_RIGHT_ARROW:
+                flipper_released("Player2RightFlipper");
+                break;
+            case EventKeyboard::KeyCode::KEY_DOWN_ARROW:
+                plunger_released("LeftPlunger");
+                break;
+        }
+    }
+    switch(keyCode){
+        case EventKeyboard::KeyCode::KEY_A:
+            flipper_released("Player1LeftFlipper");
+            break;
+        case EventKeyboard::KeyCode::KEY_D:
+            flipper_released("Player1RightFlipper");
+            break;
+        case EventKeyboard::KeyCode::KEY_S:
+            plunger_released("RightPlunger");
+        }
+}
+
+void GameScene::onTouchesBegan( const std::vector<cocos2d::Touch *> &touches, cocos2d::Event *event ) {
+    for ( auto &item: touches ) {
+        auto touch = item;
+        auto touchX = Director::getInstance()->convertToGL( touch->getLocationInView()).x;
+
+        if (touchX < visibleSize.width / 2) {
+            flipper_triggered("Player1LeftFlipper");
+        } else {
+            flipper_triggered("Player1RightFlipper");
+        }
+    }
+    return;
+}
+
+void GameScene::onTouchesMoved( const std::vector<cocos2d::Touch *> &touches, cocos2d::Event *event ) {
+    return;
+}
+
+void GameScene::onTouchesEnded( const std::vector<cocos2d::Touch *> &touches, cocos2d::Event *event ) {
+    for ( auto &item: touches ) {
+        auto touch = item;
+
+        auto done = TouchesLabels[touch->getID()];
+                this->removeChild(done, true);
+
+        auto touchX = Director::getInstance()->convertToGL( touch->getLocationInView()).x;
+        if (touchX < visibleSize.width / 2) {
+            flipper_released("Player1LeftFlipper");
+        } else {
+            flipper_released("Player1RightFlipper");
+        }
+    }
+    return;
+}
+
+void GameScene::update_string(int player) {
+    int multiplier = 1;
+
+    for (int i = 0; i < 8; ++i) {
+        PlayField* field;
+        auto SegmentName = field->PlayField::Name_generator("Segment", player);
+        auto SpringLength = this->getChildByName(field->PlayField::Name_generator("Plunger", player))->getPosition().y - this->getChildByName("PlungerStatic")->getPosition().y;
+
+        int SegmentHeight = SpringLength / 9;
+        int alpha = 45 / this->getChildByName("PlungerStatic")->getContentSize().height;
+        SegmentName += to_string(i + 1);
+        auto Segment = this->getChildByName(SegmentName);
+        //cocos2d::log("left segment OK");
+        Segment->setPosition(player * this->getChildByName("PlungerStatic")->getPosition().x, -visibleSize.height / 3 + (i + 1) * SegmentHeight);
+        multiplier *= -1;
+        Segment->setRotation(alpha * multiplier * SegmentHeight);
+        //cocos2d::log("All clear");
+    }
+}
+
+void GameScene::Ultron() {
+
+    Player &player_bot = this->player1;
+    Player &player_human = this->player2;
+    auto size = visibleSize;
+
+    auto RightPosition = this->getChildByName("Player1RightFlipper")->getPosition();
+    auto Xright = RightPosition.x;
+    auto Yright = RightPosition.y;
+
+    auto LeftPosition = this->getChildByName("Player1LeftFlipper")->getPosition();
+    auto Xleft = LeftPosition.x;
+    auto Yleft = LeftPosition.y;
+
+
+    for (size_t i = 0; i < player_bot.get_balls_number(); ++i) {
+        if (abs(Xright - player_bot.getBall(i)->getPositionX()) < size.width / 20 && abs(Yright - player_bot.getBall(i)->getPositionY()) < size.height / 500) {
+            flipper_triggered("Player1RightFlipper");
+            flipper_released("Player1RightFlipper");
+        }
+
+        if (abs(Xleft - player_bot.getBall(i)->getPositionX()) < size.width / 20 && abs(Yleft - player_bot.getBall(i)->getPositionY()) < size.height / 500) {
+            flipper_triggered("Player1LeftFlipper");
+            flipper_released("Player1LeftFlipper");
+        }
+    }
+    for (size_t i = 0; i < player_human.get_balls_number(); ++i) {
+        auto ballPosition = player_human.getBall(i)->getPosition();
+        auto PlungerWidth = this->getChildByName("PlungerStatic")->getContentSize().width;
+        if (ballPosition.x > size.width / 2 - PlungerWidth && ballPosition.y < size.height / 3 && !delay) {
+            plunger_triggered("RightPlunger");
+            ++delay;
+        }
+        if (ballPosition.x > size.width / 2 - PlungerWidth && ballPosition.y < size.height) {
+            ++delay;
+        }
+        if (delay == 60 || ballPosition.x < size.width / 2 - PlungerWidth) {
+            plunger_released("RightPlunger");
+            delay = 0;
+        }
+    }
+}
+
+int GameScene::get_side(std::string name) {
+    if (strstr(name.c_str(), "Left")) {
+        return LHS;
+    }
+    if (strstr(name.c_str(), "Right")) {
+        return RHS;
+    }
+    return 0;
+}
+
+void GameScene::checkBalls(Player &player_to_check, Player &secondPlayer) {
+    for (size_t i = 0; i < player_to_check.get_balls_number(); ++i) {
+        //cocos2d::log("checked");
+        if (player_to_check.getBall(i)->getPositionY() < -visibleSize.height / 2) {
+            cocos2d::log("ball lost");
+            auto temporaryTag = player_to_check.getBall(i)->getTag();
+            player_to_check.delete_ball(i);
+            this->removeChild(this->getChildByTag(temporaryTag));
+
+            player_to_check.ball_lost();
+
+            if (player_to_check.lost()) {
+                //<ilya> Разединяемся
+                auto scene = GameOverScene::createScene(player_to_check.getSide(), secondPlayer.get_score());
+                Director::getInstance()->replaceScene(TransitionFlipX::create(1, scene));
+            }
+
+            player_to_check.add_score(-800000);
+
+            if(!player_to_check.get_balls_number()) {
+                createBallForPlayer(player_to_check.getSide());
+                player_to_check.add_ball(this->getChildByTag(balls_total));
+            }
+
+            //debagging
+            //char childrennumber[10];
+            //sprintf(childrennumber, "%f", Director::getInstance()->getWinSize().width);
+            //cocos2d::log(childrennumber);
+
+        } else if (player_to_check.getBall(i)->getPositionX() * player_to_check.getSide() < 0) {
+            cocos2d::log("ball crossed the border");
+            secondPlayer.add_ball(player_to_check.getBall(i));
+            if (!GameMode) {
+                //<ilya> Приём. Здесь надо задать координаты и скорость, полученную от второго игрока
+                auto circle = PhysicsBody::createCircle(12, PhysicsMaterial(0.01f, 0.2f, 0.8f));
+                circle->setVelocityLimit(900);
+                circle->setCategoryBitmask((int)PhysicsCategory::Ball);
+                circle->setContactTestBitmask((int)PhysicsCategory::All);
+                player_to_check.getBall(i)->setPhysicsBody(circle);
+            }
+            auto temporaryTag = player_to_check.getBall(i)->getTag();
+            player_to_check.delete_ball(i);
+            player_to_check.add_score(300000);
+            if(!GameMode) {
+                //<ilya> передача. запоминаем координаты и скорость тела
+                this->getChildByTag(temporaryTag)->getPhysicsBody()->removeFromWorld();
+            }
+            if (!player_to_check.get_balls_number()) {
+                createBallForPlayer(player_to_check.getSide());
+                player_to_check.add_ball(this->getChildByTag(balls_total));
+            }
+        }
+    }
+}
+
+void GameScene::update(float) {
+    //cocos2d::log("checking first player");
+    checkBalls(player1, player2);
+    Score1->setString(to_string(player1.get_score()));
+    //cocos2d::log("checking second player");
+    if (GameMode) {
+        Score2->setString(to_string(player2.get_score()));
+    }
+    if (!GameMode){
+        //<ilya> Функция, обновляющая положение всех шаров с левой стороны
+        //<ilya> Здесь функция, получающая счёт второго игрока и обновляющая label
+    }
+    if(GameMode == 2) {
+        Ultron();
+    }
+    checkBalls(player2, player1);
+
+    /*Incresed frequency of Physics engine updating will allow to increse
+    maximum speed of objects without them flying through each other
+    or adding nnessesery bulk to physicsbodies.*/
+    for (int i = 0; i < 5; ++i) {
+        this->getScene()->getPhysicsWorld()->step(1 / 300.0f);
+    }
+
+    update_string(Player1);
+    //cocos2d::log("String updated for Player1");
+    update_string(Player2);
+    //cocos2d::log("String updated for Player2");
+}
