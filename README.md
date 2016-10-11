@@ -1,5 +1,14 @@
 # MultiplayerPinball
-проект весна 2015 г.
+
+Проект 1 семестра Технопарка (весна 2015)
+
+<h3>Участники проекта</h3>
+https://github.com/DmitryTsyganov физика
+<br>
+https://github.com/Evgeny-Ivanov меню
+<br>
+https://github.com/iproha94 клиент-сервер
+
 
 <h3>Инструкция</h3>
 1. Установите Ubuntu. 
@@ -66,6 +75,4 @@ g++ -pthread -std=c++11 mainServerPinball.o serverPinball.o -o serexe
 g++ -c -std=c++11 mainClientPinball.cpp clientGameTwoPlayers.cpp 
 <br>
 g++ -pthread -std=c++11 mainClientPinball.o clientGameTwoPlayers.o -o cliexe
-<br>
 
-<br>
