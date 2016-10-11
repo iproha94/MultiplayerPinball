@@ -32,9 +32,24 @@
 <br>
 3.9 ./bin/cpp-tests/cpp-tests
 <br>
+если возникет ошибка "error while loading shared libraries: libfmod.so.6", то смотрите тут https://vidagnu.blogspot.ru/2016/02/cpp-tests-error-while-loading-shared.html
+<br>
+3.10 Возвращаемя в основную папку кокоса. Создание нового проекта: 
+<br>
+cocos new MyGame -p com.your_company.mygame -l cpp -d NEW_PROJECTS_DIR
+<br>
+3.11 Запуск
+<br>
+cocos run -s NEW_PROJECTS_DIR/MyGame -p linux
+<br>
 
 <br>
 
+<br>
+<h3>Полезные ссылки:</h3>
+http://www.cocos2d-x.org/wiki/Linux_Installation_and_Setup
+<br>
+http://www.cocos2d-x.org/wiki/How_to_Start_A_New_Cocos2D-X_Game
 <br>
 
 <br>
