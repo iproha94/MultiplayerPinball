@@ -44,14 +44,28 @@ cocos run -s NEW_PROJECTS_DIR/MyGame -p linux
 <br>
 4. В NEW_PROJECTS_DIR/MyGame удалите папку Classes, Resources и файл CMakeLists.txt
 <br>
-5. Склонируйте данный репозиторий в папку NEW_PROJECTS_DIR/MyGame
+5. Склонируйте данный репозиторий
 <br>
+5. Переместите папки Classes, Resources и файл CMakeLists.txt в папку NEW_PROJECTS_DIR/MyGame
+<br>
+6. Из папки Multiplayer переместите файлы, в которых нет слова "server" в папку Classes 
 
-<br>
 <h3>Полезные ссылки:</h3>
 http://www.cocos2d-x.org/wiki/Linux_Installation_and_Setup
 <br>
 http://www.cocos2d-x.org/wiki/How_to_Start_A_New_Cocos2D-X_Game
+
+<h3>Команды компиляции сервера</h3>
+g++ -c -std=c++11 mainServerPinball.cpp serverPinball.cpp 
+<br>
+g++ -pthread -std=c++11 mainServerPinball.o serverPinball.o -o serexe
+
+<h3>Команды компиляции клиентской части</h3>
+(для тестирования клиента и сервера без игры)
+<br>
+g++ -c -std=c++11 mainClientPinball.cpp clientGameTwoPlayers.cpp 
+<br>
+g++ -pthread -std=c++11 mainClientPinball.o clientGameTwoPlayers.o -o cliexe
 <br>
 
 <br>
