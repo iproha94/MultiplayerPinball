@@ -1,3 +1,255 @@
 \chapter{Технологический раздел}
 
 \section{Выбор языка программирования}
+Для создания программного комплекса был выбран язык программирования C++. Этот выбор был сделан на основании того, что данный язык позволяет делать всё то, что необходимо в рамках этой работы, а именно: создание и управвление потоками, соединение и передача данных по сокетам, блокировка на мьютексах, работа с контейнерами.
+
+\section{Выбор протокола транспортного уровня}
+Взаимодействие между сервером и клиентами должно осуществляться на основании собственного протокола, основанного на протоколе TCP. Данный протокол выбран в связи с тем, что потеря данных между клиентами - недопустима.
+
+
+\section{Используемые шаблоны проектирования}
+
+\subsection{Паттерн singleton}
+
+Класс сервера игры основан на паттерне singleton. Это обосновывается тем, что в одной программе больше одного объекта сервера создавать не имеет смысла.
+
+\lstinputlisting[language=C++, caption={Header файл.}]{code/singleton.h}
+
+\lstinputlisting[language=C++, caption={Реализация.}]{code/singleton.cpp}
+
+
+\subsection{Паттерн шаблонный метод}
+
+Необходимо написать класс клиента игры и сделать его абстрактным. В этом классе реализуем методы, нужные для общения с сервером (обмен сообщениями о начале и конце игры). В этом классе будет чисто абстрактная функция, которая сделает класс абстрактным. Этот метод нужно реализовать в классе наследнике, он будет реализовывать обмен сообщениями конкретной игры.
+
+В ~\ref{listing:ClientGameTwoPlayers} создаем абстрактный класс. 
+
+В ~\ref{listing:ClientPinball} создаем класс ClientPinball и наследуем его от класса ClientGameTwoPlayers. Реализуем абстрактную функцию из родительского класса, которая будет отвечать за передачу сообщений и данных, специфичные для данной игры.
+
+\lstinputlisting[language=C++, caption={Header файл для родительского класса}, label=listing:ClientGameTwoPlayers]{code/template_method.h}
+
+\lstinputlisting[language=C++, caption={Реализация для класса потомка}, label=listing:ClientPinball]{code/template_method.cpp}
+
+
+
+\section{Примеры кода}
+
+\begin{lstlisting}[language=C++, caption={Создание соединения с сервером на клиенте},label=DescriptiveLabel]
+bool ClientGameTwoPlayers::initConnection(char *ipServer, int portServer) {
+  mutexArrBalls = PTHREAD_MUTEX_INITIALIZER;
+  mutexNewBall = PTHREAD_MUTEX_INITIALIZER;
+  mutexFlipper = PTHREAD_MUTEX_INITIALIZER;
+
+  if (this->getState() != STATE_CLIENT::CREATE) {
+    return false;
+  }
+
+  sock = socket(AF_INET, SOCK_STREAM, 0);
+  if (sock < 0) {
+    perror("socket");
+    return false;
+  }
+
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(portServer);
+  addr.sin_addr.s_addr = inet_addr(ipServer);
+
+  if (connect(sock, (struct sockaddr *) &addr, sizeof (addr)) < 0) {
+    perror("connect");
+    return false;
+  }
+
+  this->setState(STATE_CLIENT::CONNECT);
+  return true;
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=C++, caption={Подготовка сервера к слушанию клиентов},label=DescriptiveLabel]
+bool ServerPinball::initConnection(int port) {
+  w_lock = PTHREAD_MUTEX_INITIALIZER;
+  p_lock = PTHREAD_MUTEX_INITIALIZER;
+
+  struct sockaddr_in addr;
+
+  listener = socket(AF_INET, SOCK_STREAM, 0);
+  if (listener < 0) {
+    perror("socket");
+    return false;
+  }
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(port);
+  addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  if (bind(listener, (struct sockaddr *) &addr, sizeof (addr)) < 0) {
+    perror("bind");
+    return false;
+  }
+
+  this->setPort(port);
+  listen(listener, MAX_COUNT_PAIR_PLAYERS * 2 + MAX_LENGTH_QUEUE_WAITING_PLAYERS);
+  logger->printlog("server is created");
+  printf("server is created\n");
+  return true;
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=C++, caption={Структуры данных передаваемых пакетов},label=DescriptiveLabel]
+typedef struct {
+  float x;
+  float y;
+  float rotation;
+} SimpleBall;
+
+typedef struct {
+  float x;
+  float y;
+  float speedX;
+  float speedY;
+  float rotation;
+} PhysicsBall;
+
+typedef struct {
+  bool left;
+  bool right;
+  float spring;
+  int score;
+} FlipperTriggered;
+
+\end{lstlisting}
+
+\begin{lstlisting}[language=C++, caption={Отправка/прием типа сообщения},label=DescriptiveLabel]
+static void sendTypeMessage(int sock, TYPE_OF_MSG code) {
+  send(sock, &code, sizeof (code), 0);
+}
+
+static TYPE_OF_MSG receiveTypeMessage(int sock) {
+  TYPE_OF_MSG code;
+  recv(sock, &code, sizeof (code), 0);
+  return code;
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=C++, caption={Отправка/прием сообщения о старте игры},label=DescriptiveLabel]
+static void sendStartGame(PairPlayers* pair) {
+  TYPE_OF_MSG code = TYPE_OF_MSG::START;
+  sendTypeMessage(pair->playerOne, code);
+  sendTypeMessage(pair->playerTwo, code);
+}
+
+static bool receiveStartGame(PairPlayers* pair) {
+  TYPE_OF_MSG code = receiveTypeMessage(pair->playerOne);
+  if (code != TYPE_OF_MSG::START)
+    return false;
+
+  return receiveTypeMessage(pair->playerTwo) == TYPE_OF_MSG::START;
+}
+
+\end{lstlisting}
+
+\begin{lstlisting}[language=C++, caption={Отправка/прием сообщения с именем},label=DescriptiveLabel]
+static bool receiveNamePlayers(PairPlayers* pair, char namePlayer1[MAX_LENGTH_NAME_PLAYER], char namePlayer2[MAX_LENGTH_NAME_PLAYER]) {
+  sendTypeMessage(pair->playerOne, TYPE_OF_MSG::RECEIVE_NAME);
+  recv(pair->playerOne, namePlayer1, MAX_LENGTH_NAME_PLAYER * sizeof (char), 0);
+
+  sendTypeMessage(pair->playerTwo, TYPE_OF_MSG::RECEIVE_NAME);
+  recv(pair->playerTwo, namePlayer2, MAX_LENGTH_NAME_PLAYER * sizeof (char), 0);
+
+  return true;
+}
+
+static void sendNamePlayers(PairPlayers* pair, char namePlayer1[MAX_LENGTH_NAME_PLAYER], char namePlayer2[MAX_LENGTH_NAME_PLAYER]) {
+  sendTypeMessage(pair->playerOne, TYPE_OF_MSG::SEND_NAME);
+  send(pair->playerOne, namePlayer2, MAX_LENGTH_NAME_PLAYER * sizeof (char), 0);
+
+  sendTypeMessage(pair->playerTwo, TYPE_OF_MSG::SEND_NAME);
+  send(pair->playerTwo, namePlayer1, MAX_LENGTH_NAME_PLAYER * sizeof (char), 0);
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=C++, caption={Отправка массива шаров},label=DescriptiveLabel]
+void ClientGameTwoPlayers::sendArrBalls(int count, SimpleBall arr[MAX_COUNT_BALLS]) {
+  sendTypeMessage(sock, TYPE_OF_MSG::ARR_BALL);
+  send(sock, &count, sizeof (int), 0);
+  send(sock, arr, count * sizeof (SimpleBall), 0);
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=C++, caption={Отправка информации о рычаге, пружине, счете},label=DescriptiveLabel]
+void ClientGameTwoPlayers::sendFlipperTriggered(FlipperTriggered &flipperTriggered) {
+  sendTypeMessage(sock, TYPE_OF_MSG::FLIPPER_TRIGGERED);
+  send(sock, &flipperTriggered, sizeof (flipperTriggered), 0);
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=C++, caption={Получение данных типа Т},label=DescriptiveLabel]
+virtual void toListenServerData(TYPE_OF_MSG code) {
+  if (code == TYPE_OF_MSG::FLIPPER_TRIGGERED) {
+    FlipperTriggered *flipperTriggered = new FlipperTriggered;
+    mutexFlipperLock();
+    recv(sock, flipperTriggered, sizeof (FlipperTriggered), 0);
+    queueFlipperTriggered.push(flipperTriggered);
+    mutexFlipperUnlock();
+  } else if (code == TYPE_OF_MSG::ARR_BALL) {
+    ArrayBalls *arrayBalls = new ArrayBalls;
+    mutexArrBallsLock();
+    recv(sock, &(arrayBalls->countSimpleBalls), sizeof (arrayBalls->countSimpleBalls), 0);
+    recv(sock, arrayBalls->arrBallsOpponent, arrayBalls->countSimpleBalls * sizeof (SimpleBall), 0);
+    queueArrBallsOpponent.push(arrayBalls);
+    mutexArrBallsUnlock();
+  } else if (code == TYPE_OF_MSG::NEW_BALL) {
+    PhysicsBall *physicsBall = new PhysicsBall;
+    mutexNewBallLock();
+    recv(sock, physicsBall, sizeof (PhysicsBall), 0);
+    queueNewBall.push(physicsBall);
+    mutexNewBallUnlock();
+  } 
+}
+\end{lstlisting}
+
+\section{Интерфейс взаимодействия с клиентом}
+
+Интерфейс взаимодействия с клиентом представлен следующими функциями:
+\begin{lstlisting}[language=C++, caption={Интерфейс взаимодействия с клиентом},label=DescriptiveLabel]
+  ClientGameTwoPlayers();
+  ~ClientGameTwoPlayers();
+  bool createConnection(char *ipServer);
+  bool createConnection(char *ipServer, int portServer);
+  bool handshake(char name[MAX_LENGTH_NAME_PLAYER]);
+  bool launchServesServer();
+  STATE_CLIENT getState();
+  void setFinish();
+  char *getMyName();
+  char *getOpponentName();
+
+  bool getNewBall(PhysicsBall &ball);
+  bool getArrBallsOpponent(SimpleBall arr[MAX_COUNT_BALLS], int &count);
+  bool getFlipperTriggered(FlipperTriggered &flipper);
+
+  void sendArrBalls(int count, SimpleBall arr[MAX_COUNT_BALLS]);
+  void sendNewBall(PhysicsBall &newBall);
+  void sendFlipperTriggered(FlipperTriggered &flipperTriggered);
+  
+  void clearArrBalls(int countOpp);
+\end{lstlisting}
+
+\section{Интерфейс взаимодействия сервера с пользователем}
+
+Интерфейс взаимодействия сервера с пользователем представлен дружественным консольным меню ~\ref{image:servermenu} 
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\textwidth]{servermenu.png}
+  \caption{Меню сервера.}
+  \label{image:servermenu}
+\end{figure}
+
+\section{Логгер сервера}
+
+\lstinputlisting[language=C++, caption=Логгер]{code/logger.h}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\textwidth]{log.png}
+  \caption{Пример логга.}
+  \label{image:servermenu}
+\end{figure}
+

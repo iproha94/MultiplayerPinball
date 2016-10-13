@@ -84,7 +84,8 @@ bool ClientGameTwoPlayers::handshake(char name[MAX_LENGTH_NAME_PLAYER]) {
 
   TYPE_OF_MSG code;
   do
-    code = receiveTypeMessage(sock); while (code != TYPE_OF_MSG::START);
+    code = receiveTypeMessage(sock); 
+  while (code != TYPE_OF_MSG::START);
 
   sendTypeMessage(sock, TYPE_OF_MSG::START);
 

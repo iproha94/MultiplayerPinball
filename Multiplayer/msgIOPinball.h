@@ -33,9 +33,6 @@ typedef struct {
   int score;
 } FlipperTriggered;
 
-//receive - принимать
-//send - отправлять
-
 enum class TYPE_OF_MSG {
   FINISH,
   START,
