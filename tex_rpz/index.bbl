@@ -1,0 +1,46 @@
+\begin{thebibliography}{1}
+\def\selectlanguageifdefined#1{
+\expandafter\ifx\csname date#1\endcsname\relax
+\else\language\csname l@#1\endcsname\fi}
+\ifx\undefined\url\def\url#1{{\small #1}}\else\fi
+\ifx\undefined\BibUrl\def\BibUrl#1{\url{#1}}\else\fi
+\ifx\undefined\BibAnnote\long\def\BibAnnote#1{}\else\fi
+\ifx\undefined\BibEmph\def\BibEmph#1{\emph{#1}}\else\fi
+
+\bibitem{wiki-cocos}
+\selectlanguageifdefined{english}
+\BibEmph{Wikipedia}. Cocos2d. ---
+\newblock \url{https://ru.wikipedia.org/wiki/Cocos2d}. ---
+\newblock 2016. ---
+\newblock [Online; accessed 25-October-2016].
+
+\bibitem{habrahabr-cocos}
+\selectlanguageifdefined{english}
+\BibEmph{@Nucleotide}. Cocos2d-x — разработка простой
+  игры. ---
+\newblock \url{https://habrahabr.ru/post/270133/}. ---
+\newblock [Online; accessed 25-October-2016].
+
+\bibitem{tanenbaum-comp-networks}
+\selectlanguageifdefined{russian}
+\BibEmph{Эндрю~Таненбаум,~Дэвид~Уэзеролл}.
+  Компьютерные сети~/
+  Дэвид~Уэзеролл~Эндрю~Таненбаум. ---
+\newblock Питер, 2016.
+
+\bibitem{rago-unix}
+\selectlanguageifdefined{russian}
+\BibEmph{Стивен А.~Раго,~Уильям Ричард~Стивенс}.
+  UNIX. Профессиональное программирование~/
+  Уильям Ричард~Стивенс~Стивен А.~Раго. ---
+\newblock Символ-Плюс, 2015.
+
+\bibitem{gof}
+\selectlanguageifdefined{russian}
+\BibEmph{Эрих~Гамма,~Ричард~Хелм}. Приемы
+  объектно-ориентированного
+  проектирования. Паттерны проектирования~/
+  Ричард~Хелм~Эрих~Гамма. ---
+\newblock Питер, 2016.
+
+\end{thebibliography}

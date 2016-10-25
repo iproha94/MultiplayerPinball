@@ -17,14 +17,14 @@
 \item START - начать игру
 \item RECEIVE NAME - получить имя
 \item SEND NAME - отправить имя
-\item NEW BALL - новый мяч
-\item ARR BALL - массив мячей
-\item FLIPPER TRIGGERED - движение рычага, координата пружины, счет
+\item NEW BALL - новый шар
+\item ARR BALL - массив шаров
+\item FLIPPER TRIGGERED - дополнительные данные
 \end{enumerate}
 
-\subsection{Пакеты сообщения}
+\subsection{Пакеты сообщений}
 
-Пакет NEW BALL новый мяч:
+Пакет NEW BALL (новый мяч):
 \begin{enumerate}
 \item x - координата x;
 \item y - координата y;
@@ -33,7 +33,7 @@
 \item rotation - угол поворота;
 \end{enumerate}
 
-Пакет ARR BALL масив мячей:
+Пакет ARR BALL (масив мячей):
 \begin{enumerate}
 \item количество элементов;
 \item сами элементы:
@@ -44,25 +44,39 @@
   \end{enumerate}
 \end{enumerate}
 
-Пакет FLIPPER TRIGGERED  движение рычага:
+Пакет FLIPPER TRIGGERED (дополнительные данные):
 \begin{enumerate}
-\item left - автивен левый;
-\item right - автивен правый;
+\item left - автивен левый рычаг;
+\item right - автивен правый рычаг;
 \item spring - координата пружины;
 \item score - счет;
 \end{enumerate}
 
 \section{Алгоритм серверной части}
 
-Сервер построен по типу <<thread per game session>>, т.е. для каждой игровой сессии создается новый поток. Т.е. сервер состоит из потоков добавления, соединения и потоков сессий. 
+Сервер игры построен по типу <<thread per session>>, т.е. для каждой игровой сессии создается новый поток. 
 
-\subsection{Поток добавления}
+Сервер состоит из следующих потоков
+\begin{enumerate}
+\item добавления игроков;
+\item соединения;
+\item сессий. 
+\end{enumerate}
+
+\subsection{Поток добавления игроков}
 
 Имеется массив ожидающих игроков. При появлении соединения, новый сокет добавляется в массив ожидающих игроков.
 
 \subsection{Поток соединения}
 
-Если количество элементов в массиве ожидающих игроков больше одного, то взять два последних элемента, соединить их в пару, удалить из массива ожидающих игроков. Запустить поток сессии для этой пары игроков.  
+Если количество элементов в массиве ожидающих игроков больше одного, то взять два последних элемента, соединить их в пару, удалить из массива ожидающих игроков. Запустить поток сессии для этой пары игроков. Блок схема потока представлена на рисунке \ref{image:thread-copulation}.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[scale=0.8]{block-thread-copulation.png}
+  \caption{Блок схема потока соединения.}
+  \label{image:thread-copulation}
+\end{figure}
 
 \subsection{Поток сессии}
 
@@ -82,6 +96,15 @@
 	\end{enumerate}
 \item отправить сообщение FINISH сопернику
 \end{enumerate} 
+
+Последовательность действий сервера представлена на рисунке \ref{image:algoritm-server}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[scale=0.9]{algoritm-server.png}
+  \caption{Поток сессии.}
+  \label{image:algoritm-server}
+\end{figure}
 
 \section{Алгоритм клиентской части}
 
@@ -111,9 +134,18 @@
 \item отправить сообщение FINISH
 \end{enumerate}
 
+Последовательность действий клиента представлена на рисунке \ref{image:algoritm-client}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[scale=0.7]{algoritm-client.png}
+  \caption{Последовательность действий клиента.}
+  \label{image:algoritm-client}
+\end{figure}
+
 \subsection{Интерфейс взаимодейстия для клиента}
 
-На клиенте могут быть вызвны следующие операции:
+На клиенте могут быть вызваны следующие операции:
 \begin{enumerate}
 \item createConnection - создать соединение,
 \item handshake - поздороваться с соперником,
@@ -127,12 +159,22 @@
 \item sendFlipperTriggered - отправить информацию о своем рычаге и счете
 \end{enumerate}
 
-\section{Схема}
+\section{Диаграммы классов клиента и сервера}
+
+На рисунках \ref{image:diag-client} и \ref{image:diag-server} представлены диаграммы классов клиента и сервера.
 
 \begin{figure}[h]
   \centering
-  \includegraphics[width=\textwidth]{cs-diag.png}
-  \caption{Диаграмма классов клиента и сервера.}
+  \includegraphics[scale=2.5]{client.png}
+  \caption{Диаграмма классов клиента.}
+  \label{image:diag-client}
+\end{figure}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[scale=2.5]{server.png}
+  \caption{Диаграмма классов сервера.}
+  \label{image:diag-server}
 \end{figure}
 
 \section{Выводы}
