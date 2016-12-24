@@ -1,6 +1,4 @@
-# MultiplayerPinball
-
-Проект 1 семестра Технопарка (весна 2015)
+# Технопарк Mail.ru Group: Pinball multiplayer
 
 <h3>Участники проекта</h3>
 https://github.com/DmitryTsyganov физика
